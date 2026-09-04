@@ -1675,9 +1675,9 @@ private struct ProviderDetailView: View {
             environment: environment,
             settings: settingsStore.settings
         )
-        // `auto` returns the page's built-in split here, so a provider page
-        // needs no second branch: every mode renders the same fixed-order
-        // columns, only their contents differ.
+        // `auto` returns the page's built-in split here. OpenAI uses the same
+        // three-column waterfall as Misc below; the remaining provider pages
+        // render the resolved asymmetric columns.
         let resolved = layoutModel.arrangement(
             for: page,
             descriptors: descriptors,
@@ -1700,27 +1700,48 @@ private struct ProviderDetailView: View {
         // the popover keeps this tree alive after it closes, so the clock has
         // to stop while it is hidden.
         PageClock(interval: 30) { tickDate in
-            PageLayoutColumns(
-                page: page,
-                descriptors: descriptors,
-                arrangement: resolved,
-                // On `auto` the columns keep the exact clamped narrow-left
-                // widths they have always had. The ratio presets take over in
-                // the other two modes — including `compact`, where the ratio
-                // is one of the inputs the packer balanced against.
-                widths: layoutModel.isCustomized(page)
-                    ? PageColumnWidths(density: density, ratio: resolved.ratio)
-                    : ProviderDetailColumnWidths(density: density).columnWidths,
-                spacing: density.interSectionSpacing,
-                model: layoutModel
-            ) { descriptor in
-                ProviderPageModule(
-                    descriptor: descriptor,
-                    context: context,
-                    density: density,
-                    mode: settingsStore.displayMode,
-                    now: tickDate
-                )
+            if tool == .codex {
+                ColumnMasonryLayout(
+                    columns: density.miscColumnCount,
+                    spacing: density.interSectionSpacing
+                ) {
+                    ForEach(descriptors) { descriptor in
+                        ProviderPageModule(
+                            descriptor: descriptor,
+                            context: context,
+                            density: density,
+                            mode: settingsStore.displayMode,
+                            now: tickDate
+                        )
+                        .overviewMasonryItem(
+                            id: descriptor.id.rawValue,
+                            phase: descriptor.masonryPhase
+                        )
+                    }
+                }
+            } else {
+                PageLayoutColumns(
+                    page: page,
+                    descriptors: descriptors,
+                    arrangement: resolved,
+                    // On `auto` the columns keep the exact clamped narrow-left
+                    // widths they have always had. The ratio presets take over in
+                    // the other two modes — including `compact`, where the ratio
+                    // is one of the inputs the packer balanced against.
+                    widths: layoutModel.isCustomized(page)
+                        ? PageColumnWidths(density: density, ratio: resolved.ratio)
+                        : ProviderDetailColumnWidths(density: density).columnWidths,
+                    spacing: density.interSectionSpacing,
+                    model: layoutModel
+                ) { descriptor in
+                    ProviderPageModule(
+                        descriptor: descriptor,
+                        context: context,
+                        density: density,
+                        mode: settingsStore.displayMode,
+                        now: tickDate
+                    )
+                }
             }
         }
     }
