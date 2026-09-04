@@ -8,12 +8,18 @@ import VibeBarCore
 /// followed by per-copy states.
 struct MiscProvidersPage: View {
     let density: Theme.Density
+    var includeCoreProviders = false
 
     @EnvironmentObject var settingsStore: SettingsStore
 
     var body: some View {
         ColumnMasonryLayout(columns: density.miscColumnCount, spacing: density.interSectionSpacing) {
-            if CodexBarProviderBridge.isInstalled {
+            if includeCoreProviders {
+                ForEach(settingsStore.settings.visibleCoreProviderList, id: \.self) { tool in
+                    coreProviderCard(tool)
+                }
+            }
+            if !includeCoreProviders, CodexBarProviderBridge.isInstalled {
                 CodexBarProviderBridgeCard(density: density)
             }
             ForEach(providerGroups) { group in
@@ -23,6 +29,30 @@ struct MiscProvidersPage: View {
                     MiscProviderGroupCard(group: group, density: density)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func coreProviderCard(_ tool: ToolType) -> some View {
+        Group {
+            if tool == .gemini {
+                GeminiCombinedCard(density: density)
+            } else if tool == .grok {
+                GrokCombinedCard(density: density)
+            } else {
+                ProviderQuotaCard(tool: tool, density: density, compact: false)
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            BorderlessIconButton(
+                systemImage: "trash",
+                help: "Hide \(tool.vendorName) from Overview",
+                size: max(9, density.subtitleFontSize - 1)
+            ) {
+                settingsStore.settings.setCoreProviderVisible(false, for: tool)
+            }
+            .padding(.top, 5)
+            .padding(.trailing, 30)
         }
     }
 
@@ -52,6 +82,7 @@ private struct MiscProviderCard: View {
 
     @EnvironmentObject var environment: AppEnvironment
     @EnvironmentObject var quotaService: QuotaService
+    @EnvironmentObject var settingsStore: SettingsStore
 
     private var tool: ToolType { instance.tool }
     private var accountID: String { AccountStore.miscAccountId(forInstanceID: instance.id) }
@@ -92,6 +123,13 @@ private struct MiscProviderCard: View {
             }
             Spacer(minLength: 4)
             BorderlessIconButton(
+                systemImage: "trash",
+                help: "Hide \(tool.menuTitle) from this page",
+                size: density.subtitleFontSize
+            ) {
+                settingsStore.settings.setMiscProviderInstanceVisible(false, forID: instance.id)
+            }
+            BorderlessIconButton(
                 systemImage: "arrow.clockwise",
                 help: L10n.Quota.miscRefreshProvider(provider: tool.menuTitle),
                 size: density.subtitleFontSize
@@ -122,6 +160,7 @@ private struct MiscProviderGroupCard: View {
 
     @EnvironmentObject var environment: AppEnvironment
     @EnvironmentObject var quotaService: QuotaService
+    @EnvironmentObject var settingsStore: SettingsStore
 
     var body: some View {
         MiscProviderCardShell(density: density) {
@@ -203,6 +242,15 @@ private struct MiscProviderGroupCard: View {
             }
             Spacer(minLength: 4)
             BorderlessIconButton(
+                systemImage: "trash",
+                help: "Hide \(group.tool.menuTitle) from this page",
+                size: density.subtitleFontSize
+            ) {
+                for instance in group.instances {
+                    settingsStore.settings.setMiscProviderInstanceVisible(false, forID: instance.id)
+                }
+            }
+            BorderlessIconButton(
                 systemImage: "arrow.clockwise",
                 help: L10n.Quota.miscRefreshCopies(provider: group.tool.menuTitle),
                 size: density.subtitleFontSize
@@ -264,6 +312,7 @@ private struct MiscProviderInstanceStatusRow: View {
 
     @EnvironmentObject var environment: AppEnvironment
     @EnvironmentObject var quotaService: QuotaService
+    @EnvironmentObject var settingsStore: SettingsStore
 
     private var accountID: String { AccountStore.miscAccountId(forInstanceID: instance.id) }
     private var title: String { instance.displayTitle(fallback: "Copy \(ordinal)") }
@@ -276,6 +325,13 @@ private struct MiscProviderInstanceStatusRow: View {
                     .font(.system(size: density.subtitleFontSize, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 4)
+                BorderlessIconButton(
+                    systemImage: "trash",
+                    help: "Hide \(title) from this page",
+                    size: max(9, density.subtitleFontSize - 1)
+                ) {
+                    settingsStore.settings.setMiscProviderInstanceVisible(false, forID: instance.id)
+                }
                 BorderlessIconButton(
                     systemImage: "arrow.clockwise",
                     help: L10n.Quota.miscRefreshProvider(provider: refreshTitle),
