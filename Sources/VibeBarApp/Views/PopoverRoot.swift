@@ -32,7 +32,7 @@ struct PopoverRoot: View {
                 isRefreshing: isRefreshing,
                 titleFontSize: shellDensity.titleFontSize + 2,
                 subtitleFontSize: shellDensity.subtitleFontSize,
-                accessory: AnyView(OverviewPageSwitch(selection: $overviewPage, density: shellDensity)),
+                accessory: nil,
                 onRefresh: { environment.refreshAll() },
                 onToggleMiniWindow: onToggleMiniWindow,
                 onShowWorkbench: { environment.showWorkbench() },
@@ -121,7 +121,7 @@ struct PopoverRoot: View {
     private func content(density: Theme.Density) -> some View {
         switch overviewPage {
         case .overview:
-            OverviewWaterfall(density: density)
+            MiscProvidersPage(density: density, includeCoreProviders: true)
         case .claude:
             ProviderDetailView(tool: .claude, density: density)
         case .openAI:
@@ -204,6 +204,12 @@ struct PopoverRoot: View {
     }
 
     private var visibleAccounts: [AccountIdentity] {
+        if overviewPage == .overview {
+            return settingsStore.settings.visibleCoreProviderList
+                .compactMap { environment.account(for: $0) }
+                + settingsStore.settings.visibleMiscProviderInstances
+                .compactMap { environment.account(for: $0) }
+        }
         if overviewPage == .misc {
             return settingsStore.settings.visibleMiscProviderInstances
                 .compactMap { environment.account(for: $0) }
@@ -277,9 +283,6 @@ enum OverviewPage: String, CaseIterable, Identifiable {
         remoteConfigured: Bool
     ) -> [OverviewPage] {
         [.overview]
-            + settings.visibleCoreProviderList.compactMap(OverviewPage.page(for:))
-            + (remoteConfigured ? [.machines] : [])
-            + [.misc]
     }
 
     /// The layout-engine page this tab renders, or `nil` for tabs that are not
@@ -722,7 +725,7 @@ private struct GrokPage: View {
 /// `ProviderQuotaCard`s render with `embedded: true` so they
 /// contribute only the per-tool header + bucket list, not their
 /// own rounded-rectangle background.
-private struct GeminiCombinedCard: View {
+struct GeminiCombinedCard: View {
     let density: Theme.Density
 
     @EnvironmentObject var environment: AppEnvironment
@@ -865,7 +868,7 @@ private struct GeminiCombinedCard: View {
 
 /// Overview card for the SpaceXAI provider family. Grok, Cursor, and the
 /// cloud-only Grok Bot quota are separate SubProviders in the same card.
-private struct GrokCombinedCard: View {
+struct GrokCombinedCard: View {
     let density: Theme.Density
 
     @EnvironmentObject var environment: AppEnvironment
